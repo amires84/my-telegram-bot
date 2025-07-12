@@ -1,0 +1,93 @@
+import telebot
+from telebot import types
+
+TOKEN = '7721932002:AAF6yxd2CEEK5XXl7pSsJHmTFkcLbp7shUM'
+bot = telebot.TeleBot(TOKEN)
+
+user_data = {}
+registered_users = set()
+
+# سوالات ثبت‌نام
+questions = ["لطفاً نام خود را وارد کنید:",
+             "نام خانوادگی؟",
+             "سن؟",
+             "استان؟",
+             "شهر؟",
+             "شماره موبایل؟"]
+
+@bot.message_handler(commands=['start'])
+def start(message):
+    user_data[message.chat.id] = {'step': 0, 'answers': []}
+    bot.send_message(message.chat.id, questions[0])
+
+@bot.message_handler(func=lambda message: message.chat.id in user_data)
+def collect_info(message):
+    chat_id = message.chat.id
+    data = user_data[chat_id]
+    data['answers'].append(message.text)
+    data['step'] += 1
+
+    if data['step'] < len(questions):
+        bot.send_message(chat_id, questions[data['step']])
+    else:
+        registered_users.add(chat_id)
+        bot.send_message(chat_id, "ثبت‌نام شما کامل شد ✅")
+        send_main_menu(chat_id)
+        del user_data[chat_id]
+
+def send_main_menu(chat_id):
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    buttons = [
+        "📚 دوره‌ها", "🛍️ فروشگاه", "💳 پرداخت شهریه",
+        "ℹ️ درباره ما", "🤝 همکاری با ما", "📞 ارتباط با پشتیبانی",
+        "🎥 ویدیوهای آموزشی", "🌐 وبینارها", "📝 آزمون"
+    ]
+    for i in range(0, len(buttons), 2):
+        row = buttons[i:i+2]
+        markup.add(*row)
+    bot.send_message(chat_id, "از منوی زیر انتخاب کنید:", reply_markup=markup)
+
+# دکمه دوره‌ها
+@bot.message_handler(func=lambda message: message.text == "📚 دوره‌ها")
+def courses_handler(message):
+    if message.chat.id not in registered_users:
+        return bot.send_message(message.chat.id, "لطفاً ابتدا ثبت‌نام کنید.")
+
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("ثبت نام برای تعیین سطح", callback_data="assessment"))
+    with open("/mnt/data/photo_6019563271876626764_y.jpg", 'rb') as photo:
+        bot.send_photo(message.chat.id, photo, caption="دوره‌های ما 👇", reply_markup=markup)
+
+@bot.callback_query_handler(func=lambda call: call.data == "assessment")
+def assessment_callback(call):
+    bot.send_message(call.message.chat.id, "به زودی با شما برای تعیین سطح تماس گرفته میشود.")
+
+# دکمه فروشگاه
+@bot.message_handler(func=lambda message: message.text == "🛍️ فروشگاه")
+def store_handler(message):
+    if message.chat.id not in registered_users:
+        return bot.send_message(message.chat.id, "لطفاً ابتدا ثبت‌نام کنید.")
+    
+    books = [
+        "📘 Family and Friends 1 - 150 هزار تومان",
+        "📗 Family and Friends 2 - 150 هزار تومان",
+        "📘 Family and Friends 3 - 150 هزار تومان",
+        "📗 Family and Friends 4 - 150 هزار تومان",
+        "📘 Family and Friends 5 - 150 هزار تومان",
+        "📗 Family and Friends 6 - 150 هزار تومان"
+    ]
+    for book in books:
+        bot.send_message(message.chat.id, book)
+
+# سایر دکمه‌ها فعلاً فقط پیام میدن
+@bot.message_handler(func=lambda message: message.text in [
+    "💳 پرداخت شهریه", "ℹ️ درباره ما", "🤝 همکاری با ما",
+    "📞 ارتباط با پشتیبانی", "🎥 ویدیوهای آموزشی", "🌐 وبینارها", "📝 آزمون"])
+def others_handler(message):
+    if message.chat.id not in registered_users:
+        return bot.send_message(message.chat.id, "لطفاً ابتدا ثبت‌نام کنید.")
+    
+    bot.send_message(message.chat.id, f"بخش {message.text} به‌زودی راه‌اندازی می‌شود.")
+
+# اجرای ربات
+bot.infinity_polling()
